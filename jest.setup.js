@@ -1,4 +1,5 @@
 // Mock the global chrome object for testing
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const chrome = require('jest-chrome');
 // Remove the redundant jest import since it's already available globally
 
