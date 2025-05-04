@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartMarks</title>
+    <link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <header class="popup-header">
+            <img src="icons/icon48.png" alt="SmartMarks Logo" class="logo">
+            <h1>SmartMarks</h1>
+        </header>
+        
+        <div class="search-container">
+            <input type="text" id="search-box" placeholder="Search your bookmarks...">
+        </div>
+        
+        <div class="bookmarks-container" id="bookmarks-list">
+            <!-- Bookmarks will be populated by JavaScript -->
+            <div class="placeholder-text">Your bookmarks will appear here</div>
+        </div>
+        
+        <footer class="popup-footer">
+            <button id="add-btn" class="primary-btn">Add Current Page</button>
+            <button id="options-btn" class="secondary-btn">Options</button>
+        </footer>
+    </div>
+    
+    <script src="scripts/popup.js"></script>
+</body>
+</html>

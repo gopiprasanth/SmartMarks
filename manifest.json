@@ -2,31 +2,27 @@
   "manifest_version": 3,
   "name": "SmartMarks",
   "version": "1.0.0",
-  "description": "Intelligent bookmark management for Chrome",
+  "description": "A smart bookmark manager for Chrome",
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
+      "16": "icons/globe.png",
+      "48": "icons/globe.png",
+      "128": "icons/globe.png"
     }
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
   },
   "permissions": [
-    "bookmarks",
-    "storage"
-  ],
-  "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"]
-    }
+    "storage",
+    "bookmarks"
   ],
   "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "16": "icons/globe.png",
+    "48": "icons/globe.png",
+    "128": "icons/globe.png"
   }
 }

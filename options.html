@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartMarks Options</title>
+    <link rel="stylesheet" href="styles/options.css">
+    <link rel="stylesheet" href="styles/shared.css">
+</head>
+<body>
+    <div class="options-container">
+        <header class="options-header">
+            <img src="icons/icon48.png" alt="SmartMarks Logo" class="logo">
+            <h1>SmartMarks Options</h1>
+        </header>
+        
+        <div class="options-content">
+            <section class="option-section">
+                <h2>Display Settings</h2>
+                <div class="option-item">
+                    <label for="default-view">Default View</label>
+                    <select id="default-view">
+                        <option value="list">List View</option>
+                        <option value="grid">Grid View</option>
+                    </select>
+                </div>
+                <div class="option-item">
+                    <label for="show-favicons">Show Favicons</label>
+                    <input type="checkbox" id="show-favicons" checked>
+                </div>
+            </section>
+            
+            <section class="option-section">
+                <h2>Data Management</h2>
+                <div class="option-item">
+                    <button id="export-btn" class="secondary-btn">Export Bookmarks</button>
+                    <button id="import-btn" class="secondary-btn">Import Bookmarks</button>
+                </div>
+                <div class="option-item">
+                    <button id="clear-data-btn" class="danger-btn">Clear All Data</button>
+                </div>
+            </section>
+        </div>
+        
+        <footer class="options-footer">
+            <button id="save-btn" class="primary-btn">Save Changes</button>
+        </footer>
+    </div>
+    
+    <script src="scripts/options.js"></script>
+</body>
+</html>

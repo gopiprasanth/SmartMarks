@@ -1,0 +1,94 @@
+/* Base styles for SmartMarks extension */
+:root {
+    --primary-color: #4285f4;
+    --primary-hover: #2a75f3;
+    --secondary-color: #f8f9fa;
+    --secondary-hover: #e8eaed;
+    --text-color: #202124;
+    --light-text: #5f6368;
+    --danger-color: #ea4335;
+    --danger-hover: #d33426;
+    --border-color: #dadce0;
+    --shadow-color: rgba(60, 64, 67, 0.3);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Roboto', Arial, sans-serif;
+    font-size: 14px;
+    color: var(--text-color);
+    background-color: white;
+}
+
+/* Button styles */
+button {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.2s;
+}
+
+.primary-btn {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.primary-btn:hover {
+    background-color: var(--primary-hover);
+}
+
+.secondary-btn {
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.secondary-btn:hover {
+    background-color: var(--secondary-hover);
+}
+
+.danger-btn {
+    background-color: white;
+    color: var(--danger-color);
+    border: 1px solid var(--danger-color);
+}
+
+.danger-btn:hover {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+/* Common form elements */
+input[type="text"],
+input[type="search"],
+select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+input[type="text"]:focus,
+input[type="search"]:focus,
+select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+}
+
+/* Logo styling */
+.logo {
+    height: 24px;
+    width: 24px;
+    margin-right: 8px;
+}

@@ -1,0 +1,94 @@
+@import 'shared.css';
+
+.options-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.options-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.options-header h1 {
+    font-size: 24px;
+    font-weight: 500;
+}
+
+.option-section {
+    margin-bottom: 32px;
+}
+
+.option-section h2 {
+    font-size: 18px;
+    margin-bottom: 16px;
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+.option-item {
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+}
+
+.option-item label {
+    width: 150px;
+    font-weight: 500;
+}
+
+.option-item select {
+    width: 200px;
+}
+
+.options-footer {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Switch for checkboxes */
+.option-item input[type="checkbox"] {
+    height: 0;
+    width: 0;
+    visibility: hidden;
+    position: absolute;
+}
+
+.option-item label[for="show-favicons"] {
+    cursor: pointer;
+    text-indent: -9999px;
+    width: 50px;
+    height: 25px;
+    background: grey;
+    display: block;
+    border-radius: 25px;
+    position: relative;
+}
+
+.option-item label[for="show-favicons"]:after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 19px;
+    height: 19px;
+    background: #fff;
+    border-radius: 19px;
+    transition: 0.3s;
+}
+
+.option-item input[type="checkbox"]:checked + label[for="show-favicons"] {
+    background: var(--primary-color);
+}
+
+.option-item input[type="checkbox"]:checked + label[for="show-favicons"]:after {
+    left: calc(100% - 3px);
+    transform: translateX(-100%);
+}
