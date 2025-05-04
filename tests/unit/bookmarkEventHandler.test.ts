@@ -2,11 +2,34 @@
  * Tests for BookmarkEventHandler
  */
 
-import { BookmarkEventHandler } from '../src/background/services/BookmarkEventHandler';
-import { Logger, LogLevel } from '../src/common/utils/Logger';
+import { BookmarkEventHandler } from '../../src/background/services/BookmarkEventHandler';
+import { Logger, LogLevel } from '../../src/common/utils/Logger';
 
 // Mock Logger
-jest.mock('../src/common/utils/Logger');
+jest.mock('../../src/common/utils/Logger');
+
+// Mock BookmarkService
+jest.mock('../../src/common/services/BookmarkService', () => {
+  return {
+    BookmarkService: jest.fn().mockImplementation(() => ({
+      analyzeBookmarks: jest.fn().mockResolvedValue({
+        totalBookmarks: 10,
+        totalFolders: 5,
+        folders: new Map(),
+        rootFolders: []
+      }),
+      suggestFolders: jest.fn().mockResolvedValue([
+        {
+          id: 'folder1',
+          title: 'Suggested Folder',
+          path: 'Parent/Suggested Folder',
+          bookmarkCount: 5
+        }
+      ]),
+      getBookmarkService: jest.fn().mockReturnThis()
+    }))
+  };
+});
 
 // Mock Chrome API
 const mockChrome = {
@@ -18,17 +41,18 @@ const mockChrome = {
     get: jest.fn()
   },
   runtime: {
-    lastError: null
+    lastError: null,
+    sendMessage: jest.fn().mockReturnValue(Promise.resolve())
   }
 };
 
 // Mock ChromeUtils
-jest.mock('../src/common/utils/ChromeUtils', () => ({
+jest.mock('../../src/common/utils/ChromeUtils', () => ({
   getBookmarkById: jest.fn()
 }));
 
 // Import mocked ChromeUtils
-import { getBookmarkById } from '../src/common/utils/ChromeUtils';
+import { getBookmarkById } from '../../src/common/utils/ChromeUtils';
 
 // Assign mock to global
 (global as any).chrome = mockChrome;
@@ -55,9 +79,9 @@ describe('BookmarkEventHandler', () => {
     handler = new BookmarkEventHandler();
   });
 
-  test('should initialize and register event listeners', () => {
+  test('should initialize and register event listeners', async () => {
     // Call init
-    handler.init();
+    await handler.init();
 
     // Verify that all listeners are registered
     expect(mockChrome.bookmarks.onCreated.addListener).toHaveBeenCalled();
@@ -70,15 +94,24 @@ describe('BookmarkEventHandler', () => {
     expect(mockLoggerInstance.info).toHaveBeenCalledWith(
       'Bookmark event handlers initialized successfully'
     );
+
+    // Verify bookmark analysis was performed during initialization
+    const bookmarkService = (handler as any).bookmarkService;
+    expect(bookmarkService.analyzeBookmarks).toHaveBeenCalled();
   });
 
-  test('should handle bookmark created event', async () => {
+  test('should handle bookmark created event with folder suggestions', async () => {
     // Setup mock to return bookmark details
-    const mockBookmark = { id: '123', title: 'Test Bookmark', url: 'https://example.com' };
+    const mockBookmark = {
+      id: '123',
+      title: 'Test Bookmark',
+      url: 'https://example.com',
+      parentId: 'folder1'
+    };
     (getBookmarkById as jest.Mock).mockResolvedValueOnce([mockBookmark]);
 
     // Initialize handler
-    handler.init();
+    await handler.init();
 
     // Get the callback that was registered
     const createdCallback = mockChrome.bookmarks.onCreated.addListener.mock.calls[0][0];
@@ -99,20 +132,29 @@ describe('BookmarkEventHandler', () => {
       'Bookmark created',
       expect.objectContaining({ id: '123' })
     );
-    expect(mockLoggerInstance.info).toHaveBeenCalledWith(
-      'Bookmark created with details',
+
+    // Verify folder suggestions were requested
+    const bookmarkService = (handler as any).bookmarkService;
+    expect(bookmarkService.suggestFolders).toHaveBeenCalledWith(
+      'Test Bookmark',
+      'https://example.com'
+    );
+
+    // Verify message was sent with suggestions
+    expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: '123',
-        title: 'Test Bookmark',
-        url: 'https://example.com',
-        parentId: 'folder1'
+        action: 'folderSuggestions',
+        bookmarkId: '123',
+        suggestions: expect.arrayContaining([
+          expect.objectContaining({ id: 'folder1', title: 'Suggested Folder' })
+        ])
       })
     );
   });
 
   test('should handle bookmark changed event', async () => {
     // Initialize handler
-    handler.init();
+    await handler.init();
 
     // Get the callback that was registered
     const changedCallback = mockChrome.bookmarks.onChanged.addListener.mock.calls[0][0];
@@ -124,18 +166,22 @@ describe('BookmarkEventHandler', () => {
     };
 
     // Call the callback with test data
-    changedCallback('123', changeInfo);
+    await changedCallback('123', changeInfo);
 
     // Verify logging happened correctly
     expect(mockLoggerInstance.info).toHaveBeenCalledWith('Bookmark changed', {
       id: '123',
       changes: changeInfo
     });
+
+    // Verify analysis was refreshed since title changed
+    const bookmarkService = (handler as any).bookmarkService;
+    expect(bookmarkService.analyzeBookmarks).toHaveBeenCalledTimes(2); // Once during init, once after change
   });
 
   test('should handle bookmark moved event', async () => {
     // Initialize handler
-    handler.init();
+    await handler.init();
 
     // Get the callback that was registered
     const movedCallback = mockChrome.bookmarks.onMoved.addListener.mock.calls[0][0];
@@ -149,7 +195,7 @@ describe('BookmarkEventHandler', () => {
     };
 
     // Call the callback with test data
-    movedCallback('123', moveInfo);
+    await movedCallback('123', moveInfo);
 
     // Verify logging happened correctly
     expect(mockLoggerInstance.info).toHaveBeenCalledWith('Bookmark moved', {
@@ -157,11 +203,15 @@ describe('BookmarkEventHandler', () => {
       from: 'oldFolder',
       to: 'newFolder'
     });
+
+    // Verify analysis was refreshed
+    const bookmarkService = (handler as any).bookmarkService;
+    expect(bookmarkService.analyzeBookmarks).toHaveBeenCalledTimes(2); // Once during init, once after move
   });
 
   test('should handle bookmark removed event', async () => {
     // Initialize handler
-    handler.init();
+    await handler.init();
 
     // Get the callback that was registered
     const removedCallback = mockChrome.bookmarks.onRemoved.addListener.mock.calls[0][0];
@@ -173,13 +223,17 @@ describe('BookmarkEventHandler', () => {
     };
 
     // Call the callback with test data
-    removedCallback('123', removeInfo);
+    await removedCallback('123', removeInfo);
 
     // Verify logging happened correctly
     expect(mockLoggerInstance.info).toHaveBeenCalledWith('Bookmark removed', {
       id: '123',
       parentId: 'folder1'
     });
+
+    // Verify analysis was refreshed
+    const bookmarkService = (handler as any).bookmarkService;
+    expect(bookmarkService.analyzeBookmarks).toHaveBeenCalledTimes(2); // Once during init, once after removal
   });
 
   test('should handle error when retrieving bookmark details fails', async () => {
@@ -188,7 +242,7 @@ describe('BookmarkEventHandler', () => {
     (getBookmarkById as jest.Mock).mockRejectedValueOnce(mockError);
 
     // Initialize handler
-    handler.init();
+    await handler.init();
 
     // Get the callback that was registered
     const createdCallback = mockChrome.bookmarks.onCreated.addListener.mock.calls[0][0];
@@ -211,5 +265,11 @@ describe('BookmarkEventHandler', () => {
   test('should create logger with correct context and log level', () => {
     // Verify logger was created with correct parameters
     expect(Logger).toHaveBeenCalledWith('BookmarkEventHandler', LogLevel.INFO);
+  });
+
+  test('should provide access to bookmark service instance', () => {
+    // Test the getter method
+    const bookmarkService = handler.getBookmarkService();
+    expect(bookmarkService).toBeDefined();
   });
 });

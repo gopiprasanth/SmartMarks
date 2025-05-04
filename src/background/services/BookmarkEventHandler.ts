@@ -8,24 +8,39 @@ import {
   BookmarkRemoveInfo,
   getBookmarkById
 } from '../../common/utils/ChromeUtils';
+import { BookmarkService } from '../../common/services/BookmarkService';
 
 export class BookmarkEventHandler {
   private logger: Logger;
+  private bookmarkService: BookmarkService;
 
   constructor() {
     this.logger = new Logger('BookmarkEventHandler', LogLevel.INFO);
+    this.bookmarkService = new BookmarkService();
   }
 
   /**
    * Initialize event listeners for bookmark events
    */
-  public init(): void {
+  public async init(): Promise<void> {
     this.logger.info('Initializing bookmark event handlers');
 
+    // Register event listeners
     chrome.bookmarks.onCreated.addListener(this.handleBookmarkCreated.bind(this));
     chrome.bookmarks.onChanged.addListener(this.handleBookmarkChanged.bind(this));
     chrome.bookmarks.onMoved.addListener(this.handleBookmarkMoved.bind(this));
     chrome.bookmarks.onRemoved.addListener(this.handleBookmarkRemoved.bind(this));
+
+    // Initialize bookmark analysis
+    try {
+      const analysis = await this.bookmarkService.analyzeBookmarks();
+      this.logger.info('Initial bookmark analysis completed', {
+        totalFolders: analysis.totalFolders,
+        totalBookmarks: analysis.totalBookmarks
+      });
+    } catch (error) {
+      this.logger.error('Error during initial bookmark analysis', error);
+    }
 
     this.logger.info('Bookmark event handlers initialized successfully');
   }
@@ -52,8 +67,42 @@ export class BookmarkEventHandler {
         fullDetails: bookmarkDetails
       });
 
-      // This is where we'll eventually add the smart folder suggestion logic
-      // For now, just log the event
+      // If this is not a folder (has URL), then suggest folders
+      if (bookmark.url) {
+        const suggestedFolders = await this.bookmarkService.suggestFolders(
+          bookmark.title || '',
+          bookmark.url
+        );
+
+        if (suggestedFolders.length > 0) {
+          this.logger.info('Suggested folders for new bookmark', {
+            bookmarkId: id,
+            suggestions: suggestedFolders.map(f => ({ id: f.id, title: f.title, path: f.path }))
+          });
+
+          // Send message to UI with suggested folders (if popup is open)
+          chrome.runtime
+            .sendMessage({
+              action: 'folderSuggestions',
+              bookmarkId: id,
+              suggestions: suggestedFolders.map(f => ({
+                id: f.id,
+                title: f.title,
+                path: f.path,
+                bookmarkCount: f.bookmarkCount
+              }))
+            })
+            .catch(err => {
+              // It's normal for this to fail if popup is not open
+              this.logger.debug('Could not send folder suggestions to UI', err);
+            });
+        } else {
+          this.logger.info('No folder suggestions found for bookmark', { bookmarkId: id });
+        }
+      } else {
+        // If this is a new folder, update our analysis
+        await this.bookmarkService.analyzeBookmarks();
+      }
     } catch (error) {
       this.logger.error('Error handling bookmark creation', error);
     }
@@ -62,21 +111,51 @@ export class BookmarkEventHandler {
   /**
    * Handle bookmark changed event
    */
-  private handleBookmarkChanged(id: string, changeInfo: BookmarkChangeInfo): void {
+  private async handleBookmarkChanged(id: string, changeInfo: BookmarkChangeInfo): Promise<void> {
     this.logger.info('Bookmark changed', { id, changes: changeInfo });
+
+    // Refresh bookmark analysis if significant changes were made
+    if (changeInfo.title) {
+      try {
+        await this.bookmarkService.analyzeBookmarks();
+      } catch (error) {
+        this.logger.error('Error updating bookmark analysis after change', error);
+      }
+    }
   }
 
   /**
    * Handle bookmark moved event
    */
-  private handleBookmarkMoved(id: string, moveInfo: BookmarkMoveInfo): void {
+  private async handleBookmarkMoved(id: string, moveInfo: BookmarkMoveInfo): Promise<void> {
     this.logger.info('Bookmark moved', { id, from: moveInfo.oldParentId, to: moveInfo.parentId });
+
+    // Update analysis when bookmarks are reorganized
+    try {
+      await this.bookmarkService.analyzeBookmarks();
+    } catch (error) {
+      this.logger.error('Error updating bookmark analysis after move', error);
+    }
   }
 
   /**
    * Handle bookmark removed event
    */
-  private handleBookmarkRemoved(id: string, removeInfo: BookmarkRemoveInfo): void {
+  private async handleBookmarkRemoved(id: string, removeInfo: BookmarkRemoveInfo): Promise<void> {
     this.logger.info('Bookmark removed', { id, parentId: removeInfo.parentId });
+
+    // Refresh bookmark analysis when items are removed
+    try {
+      await this.bookmarkService.analyzeBookmarks();
+    } catch (error) {
+      this.logger.error('Error updating bookmark analysis after removal', error);
+    }
+  }
+
+  /**
+   * Get bookmark service instance
+   */
+  public getBookmarkService(): BookmarkService {
+    return this.bookmarkService;
   }
 }

@@ -18,12 +18,12 @@ logger.info('SmartMarks background script initializing...');
 const bookmarkEventHandler = new BookmarkEventHandler();
 
 // Extension initialization
-const initExtension = () => {
+const initExtension = async () => {
   logger.info('SmartMarks extension initialization started');
 
   try {
     // Initialize bookmark event handler
-    bookmarkEventHandler.init();
+    await bookmarkEventHandler.init();
 
     logger.info('SmartMarks extension initialization completed successfully');
   } catch (error) {
@@ -44,17 +44,39 @@ chrome.runtime.onInstalled.addListener(details => {
 });
 
 // Initialize extension
-initExtension();
+initExtension().catch(error => {
+  logger.error('Error during initialization', error);
+});
 
 // Listen for messages from popup or content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   logger.debug('Message received', { message, sender });
 
-  // Handle different message types here
-  // For now, just acknowledge receipt
-  sendResponse({ status: 'received' });
+  // Handle different message types
+  if (message.action === 'getBookmarkAnalysis') {
+    // Get analysis data and send it back
+    bookmarkEventHandler
+      .getBookmarkService()
+      .getBookmarkAnalysis()
+      .then(analysis => {
+        sendResponse({
+          status: 'success',
+          data: {
+            totalBookmarks: analysis.totalBookmarks,
+            totalFolders: analysis.totalFolders
+          }
+        });
+      })
+      .catch(error => {
+        sendResponse({ status: 'error', message: error.message });
+      });
 
-  // Return true to indicate we'll respond asynchronously
+    // Return true to indicate we'll respond asynchronously
+    return true;
+  }
+
+  // Default response
+  sendResponse({ status: 'received' });
   return true;
 });
 
