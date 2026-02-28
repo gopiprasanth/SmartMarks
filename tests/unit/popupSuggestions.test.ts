@@ -31,6 +31,10 @@ class FakeElement {
   click(): void {
     (this.listeners.click || []).forEach(listener => listener());
   }
+
+  remove(): void {
+    this.parentNode = null;
+  }
 }
 
 const createFakeDocument = () => {
@@ -121,6 +125,13 @@ describe('popup folder suggestion flow', () => {
         openOptionsPage: jest.fn(),
         getURL: jest.fn((path: string) => path)
       },
+      storage: {
+        sync: {
+          get: jest.fn((_defaults: any, cb: (items: any) => void) =>
+            cb({ askFolderBeforeSave: false, autoCreateFolders: false })
+          )
+        }
+      },
       bookmarks: {
         search: jest.fn((_query: any, callback: (results: any[]) => void) => callback([])),
         create: createBookmark,
@@ -138,6 +149,7 @@ describe('popup folder suggestion flow', () => {
 
     const addButton = (global as any).document.getElementById('add-btn');
     addButton.click();
+    await Promise.resolve();
 
     expect(sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -189,6 +201,13 @@ describe('popup folder suggestion flow', () => {
         openOptionsPage: jest.fn(),
         getURL: jest.fn((path: string) => path)
       },
+      storage: {
+        sync: {
+          get: jest.fn((_defaults: any, cb: (items: any) => void) =>
+            cb({ askFolderBeforeSave: false, autoCreateFolders: false })
+          )
+        }
+      },
       bookmarks: {
         search: jest.fn((_query: any, callback: (results: any[]) => void) => callback([])),
         create: createBookmark,
@@ -206,6 +225,7 @@ describe('popup folder suggestion flow', () => {
 
     const addButton = (global as any).document.getElementById('add-btn');
     addButton.click();
+    await Promise.resolve();
 
     expect(createBookmark).toHaveBeenCalledWith(
       expect.objectContaining({

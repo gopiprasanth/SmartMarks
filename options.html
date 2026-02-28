@@ -13,7 +13,7 @@
             <img src="icons/icon48.png" alt="SmartMarks Logo" class="logo">
             <h1>SmartMarks Options</h1>
         </header>
-        
+
         <div class="options-content">
             <section class="option-section">
                 <h2>Display Settings</h2>
@@ -29,7 +29,19 @@
                     <input type="checkbox" id="show-favicons" checked>
                 </div>
             </section>
-            
+
+            <section class="option-section">
+                <h2>Smart Suggestions</h2>
+                <div class="option-item">
+                    <label for="ask-folder-before-save">Show folder suggestion modal</label>
+                    <input type="checkbox" id="ask-folder-before-save" checked>
+                </div>
+                <div class="option-item">
+                    <label for="auto-create-folders">Auto-create intelligent folder when no suggestion exists</label>
+                    <input type="checkbox" id="auto-create-folders">
+                </div>
+            </section>
+
             <section class="option-section">
                 <h2>Data Management</h2>
                 <div class="option-item">
@@ -41,12 +53,12 @@
                 </div>
             </section>
         </div>
-        
+
         <footer class="options-footer">
             <button id="save-btn" class="primary-btn">Save Changes</button>
         </footer>
     </div>
-    
+
     <script src="scripts/options.js"></script>
 </body>
 </html>

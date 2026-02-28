@@ -2,6 +2,8 @@ document.addEventListener('DOMContentLoaded', function () {
   // DOM elements
   const defaultViewSelect = document.getElementById('default-view');
   const showFaviconsCheckbox = document.getElementById('show-favicons');
+  const askFolderBeforeSaveCheckbox = document.getElementById('ask-folder-before-save');
+  const autoCreateFoldersCheckbox = document.getElementById('auto-create-folders');
   const exportBtn = document.getElementById('export-btn');
   const importBtn = document.getElementById('import-btn');
   const clearDataBtn = document.getElementById('clear-data-btn');
@@ -16,11 +18,15 @@ document.addEventListener('DOMContentLoaded', function () {
     chrome.storage.sync.get(
       {
         defaultView: 'list',
-        showFavicons: true
+        showFavicons: true,
+        askFolderBeforeSave: true,
+        autoCreateFolders: false
       },
       function (items) {
         defaultViewSelect.value = items.defaultView;
         showFaviconsCheckbox.checked = items.showFavicons;
+        askFolderBeforeSaveCheckbox.checked = items.askFolderBeforeSave;
+        autoCreateFoldersCheckbox.checked = items.autoCreateFolders;
       }
     );
   }
@@ -29,7 +35,9 @@ document.addEventListener('DOMContentLoaded', function () {
   function saveOptions() {
     const options = {
       defaultView: defaultViewSelect.value,
-      showFavicons: showFaviconsCheckbox.checked
+      showFavicons: showFaviconsCheckbox.checked,
+      askFolderBeforeSave: askFolderBeforeSaveCheckbox.checked,
+      autoCreateFolders: autoCreateFoldersCheckbox.checked
     };
 
     chrome.storage.sync.set(options, function () {
@@ -87,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }, 2000);
             loadOptions(); // Refresh the UI
           });
-        } catch (error) {
+        } catch (_error) {
           statusEl.textContent = 'Error: Invalid backup file';
           statusEl.style.display = 'block';
           setTimeout(function () {

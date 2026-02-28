@@ -6,9 +6,13 @@ import { jest } from '@jest/globals';
 
 const mockGetBookmarkAnalysis = jest.fn(async () => ({}));
 const mockSuggestFolders = jest.fn(async (): Promise<any[]> => []);
+const mockRecordFolderSelection = jest.fn(async () => undefined);
+const mockCreateFolderForBookmark = jest.fn(async () => null as any);
 const mockGetBookmarkService = jest.fn(() => ({
   getBookmarkAnalysis: mockGetBookmarkAnalysis,
-  suggestFolders: mockSuggestFolders
+  suggestFolders: mockSuggestFolders,
+  recordFolderSelection: mockRecordFolderSelection,
+  createFolderForBookmark: mockCreateFolderForBookmark
 }));
 
 const mockInit = jest.fn(async () => undefined);
@@ -147,6 +151,57 @@ describe('background/index.ts', () => {
     expect(response).toEqual({
       status: 'error',
       message: 'suggestion failure'
+    });
+  });
+
+
+  test('records user folder selection for preference learning', async () => {
+    const responsePromise = new Promise<any>(resolve => {
+      messageListener(
+        {
+          action: 'recordFolderSelection',
+          folderId: 'folder-12'
+        },
+        {} as chrome.runtime.MessageSender,
+        resolve
+      );
+    });
+
+    const response = await responsePromise;
+    expect(mockRecordFolderSelection).toHaveBeenCalledWith('folder-12');
+    expect(response).toEqual({ status: 'success' });
+  });
+
+  test('creates intelligent folder and returns created folder payload', async () => {
+    mockCreateFolderForBookmark.mockResolvedValueOnce({
+      id: 'f-created',
+      title: 'Docs Resources',
+      path: 'Bookmarks Bar/Docs Resources',
+      bookmarkCount: 0
+    });
+
+    const responsePromise = new Promise<any>(resolve => {
+      messageListener(
+        {
+          action: 'createIntelligentFolder',
+          title: 'API Docs',
+          url: 'https://docs.example.com'
+        },
+        {} as chrome.runtime.MessageSender,
+        resolve
+      );
+    });
+
+    const response = await responsePromise;
+    expect(mockCreateFolderForBookmark).toHaveBeenCalledWith('API Docs', 'https://docs.example.com');
+    expect(response).toEqual({
+      status: 'success',
+      data: {
+        id: 'f-created',
+        title: 'Docs Resources',
+        path: 'Bookmarks Bar/Docs Resources',
+        bookmarkCount: 0
+      }
     });
   });
 });
