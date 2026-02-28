@@ -75,6 +75,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.action === 'getFolderSuggestions') {
+    const title = typeof message.title === 'string' ? message.title : '';
+    const url = typeof message.url === 'string' ? message.url : '';
+
+    bookmarkEventHandler
+      .getBookmarkService()
+      .suggestFolders(title, url)
+      .then(suggestions => {
+        sendResponse({
+          status: 'success',
+          data: suggestions.map(folder => ({
+            id: folder.id,
+            title: folder.title,
+            path: folder.path,
+            bookmarkCount: folder.bookmarkCount
+          }))
+        });
+      })
+      .catch(error => {
+        sendResponse({ status: 'error', message: error.message });
+      });
+
+    return true;
+  }
+
   // Default response
   sendResponse({ status: 'received' });
   return true;

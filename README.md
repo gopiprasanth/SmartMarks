@@ -16,9 +16,9 @@ SmartMarks is a Chrome extension for intelligent bookmark management. It provide
 - Bookmark data collection and parsing functionality
 - Analysis of bookmark folder structures
 - Basic UI feedback in the popup interface
+- Basic suggestion algorithm with keyword matching
 
 ### Coming Soon:
-- Basic suggestion algorithm with keyword matching (next commit)
 - UI modal for folder suggestions
 - Options page with basic settings
 - ML/NLP integration for improved suggestion accuracy
