@@ -1,3 +1,5 @@
+import categorizationConfig from './config/config.json';
+
 export type CategorizationVersion = 'v1' | 'v2';
 
 export type LLMProvider = 'openai' | 'anthropic' | 'gemini' | 'openai-compatible';
@@ -17,9 +19,9 @@ export interface CategorizationSettings {
 }
 
 export const defaultCategorizationSettings: CategorizationSettings = {
-  categorizationVersion: 'v1',
+  categorizationVersion: categorizationConfig.categorizationVersion === 'v2' ? 'v2' : 'v1',
   llm: {
-    enabled: false,
+    enabled: true,
     provider: 'openai',
     model: 'gpt-4o-mini',
     apiKey: '',

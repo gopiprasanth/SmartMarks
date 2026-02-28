@@ -65,20 +65,39 @@ describe('LLMCategorizer', () => {
     });
 
     const categorizer = new LLMCategorizer();
-    const result = await categorizer.suggestFolders(
-      'Example',
-      'https://example.com',
-      [],
-      {
-        enabled: true,
-        provider: 'openai',
-        model: 'gpt-4o-mini',
-        apiKey: 'x',
-        baseUrl: '',
-        temperature: 0.2
-      }
-    );
+    const result = await categorizer.suggestFolders('Example', 'https://example.com', [], {
+      enabled: true,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      apiKey: 'x',
+      baseUrl: '',
+      temperature: 0.2
+    });
 
     expect(result).toEqual([]);
+  });
+
+  test('injects provider defaults when passed a partial config object', async () => {
+    let seenBody: any = null;
+    (global as any).fetch = jest.fn().mockImplementation((url: string, opts: any) => {
+      seenBody = JSON.parse(opts.body);
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: '{"suggestions":[{"folderId":"x","confidence":1}]}' } }]
+        })
+      });
+    });
+
+    const categorizer = new LLMCategorizer();
+    const result = await categorizer.suggestFolders('foo', 'https://foo', [], {
+      enabled: true,
+      provider: 'openai',
+      apiKey: 'abc' // model/baseUrl/temperature will come from openai.json
+    } as any);
+
+    expect(result).toEqual(['x']);
+    expect(seenBody).not.toBeNull();
+    expect(seenBody.model).toBe('gpt-4o-mini');
   });
 });

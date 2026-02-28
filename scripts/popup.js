@@ -48,7 +48,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const saveInFolder = folder => {
       if (folder && folder.id) {
-        chrome.runtime.sendMessage({ action: 'recordFolderSelection', folderId: folder.id }, () => {});
+        chrome.runtime.sendMessage(
+          { action: 'recordFolderSelection', folderId: folder.id },
+          () => {}
+        );
       }
 
       const createDetails = {
@@ -194,7 +197,7 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       favicon.src = `https://www.google.com/s2/favicons?domain=${domain}`;
     } else {
-      favicon.src = 'icons/folder.png';
+      favicon.src = 'icons/home.png';
     }
 
     // Create title and url elements

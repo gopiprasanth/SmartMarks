@@ -51,7 +51,8 @@ module.exports = {
       patterns: [
         { from: 'manifest.json', to: '.' },
         { from: 'styles', to: 'styles' },
-        { from: 'icons', to: 'icons' }
+        { from: 'icons', to: 'icons' },
+        { from: 'src/common/services/categorization/config', to: 'config' }
       ]
     }),
     new HtmlWebpackPlugin({

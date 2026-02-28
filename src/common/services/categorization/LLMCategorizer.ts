@@ -1,5 +1,7 @@
 import { BookmarkFolder } from '../BookmarkService';
 import { LLMCategorizationConfig, LLMProvider } from './CategorizationSettings';
+import { getProviderDefaults } from './ProviderConfig';
+import { Logger, LogLevel } from '../../utils/Logger';
 
 interface LLMFolderSuggestion {
   folderId: string;
@@ -11,15 +13,20 @@ interface LLMClient {
   complete(prompt: string, config: LLMCategorizationConfig): Promise<string>;
 }
 
+const logger = new Logger('LLMCategorizer', LogLevel.INFO);
+
 class OpenAICompatibleClient implements LLMClient {
-  private readonly defaultUrl: string;
-
-  constructor(defaultUrl: string) {
-    this.defaultUrl = defaultUrl;
-  }
-
   public async complete(prompt: string, config: LLMCategorizationConfig): Promise<string> {
-    const endpoint = `${(config.baseUrl || this.defaultUrl).replace(/\/$/, '')}/chat/completions`;
+    const endpoint = `${config.baseUrl.replace(/\/$/, '')}/chat/completions`;
+    const startedAt = Date.now();
+    logger.info('LLM request', {
+      provider: config.provider,
+      endpoint,
+      model: config.model,
+      temperature: config.temperature,
+      hasApiKey: Boolean(config.apiKey),
+      promptLength: prompt.length
+    });
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -45,17 +52,41 @@ class OpenAICompatibleClient implements LLMClient {
     });
 
     if (!response.ok) {
+      logger.error('LLM request failed', {
+        provider: config.provider,
+        endpoint,
+        status: response.status,
+        durationMs: Date.now() - startedAt
+      });
       throw new Error(`OpenAI-compatible request failed with status ${response.status}`);
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content ?? '{"suggestions": []}';
+    const content = data.choices?.[0]?.message?.content ?? '{"suggestions": []}';
+    logger.info('LLM response', {
+      provider: config.provider,
+      endpoint,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+      responseLength: content.length
+    });
+
+    return content;
   }
 }
 
 class AnthropicClient implements LLMClient {
   public async complete(prompt: string, config: LLMCategorizationConfig): Promise<string> {
-    const endpoint = `${(config.baseUrl || 'https://api.anthropic.com/v1').replace(/\/$/, '')}/messages`;
+    const endpoint = `${config.baseUrl.replace(/\/$/, '')}/messages`;
+    const startedAt = Date.now();
+    logger.info('LLM request', {
+      provider: config.provider,
+      endpoint,
+      model: config.model,
+      temperature: config.temperature,
+      hasApiKey: Boolean(config.apiKey),
+      promptLength: prompt.length
+    });
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -73,6 +104,12 @@ class AnthropicClient implements LLMClient {
     });
 
     if (!response.ok) {
+      logger.error('LLM request failed', {
+        provider: config.provider,
+        endpoint,
+        status: response.status,
+        durationMs: Date.now() - startedAt
+      });
       throw new Error(`Anthropic request failed with status ${response.status}`);
     }
 
@@ -81,17 +118,32 @@ class AnthropicClient implements LLMClient {
       ? data.content.find((item: { type?: string }) => item.type === 'text')
       : null;
 
-    return textBlock?.text ?? '{"suggestions": []}';
+    const content = textBlock?.text ?? '{"suggestions": []}';
+    logger.info('LLM response', {
+      provider: config.provider,
+      endpoint,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+      responseLength: content.length
+    });
+
+    return content;
   }
 }
 
 class GeminiClient implements LLMClient {
   public async complete(prompt: string, config: LLMCategorizationConfig): Promise<string> {
-    const baseUrl = (config.baseUrl || 'https://generativelanguage.googleapis.com/v1beta/models').replace(
-      /\/$/,
-      ''
-    );
+    const baseUrl = config.baseUrl.replace(/\/$/, '');
     const endpoint = `${baseUrl}/${config.model}:generateContent?key=${encodeURIComponent(config.apiKey)}`;
+    const startedAt = Date.now();
+    logger.info('LLM request', {
+      provider: config.provider,
+      endpoint: `${baseUrl}/${config.model}:generateContent?key=***`,
+      model: config.model,
+      temperature: config.temperature,
+      hasApiKey: Boolean(config.apiKey),
+      promptLength: prompt.length
+    });
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -107,11 +159,26 @@ class GeminiClient implements LLMClient {
     });
 
     if (!response.ok) {
+      logger.error('LLM request failed', {
+        provider: config.provider,
+        endpoint: `${baseUrl}/${config.model}:generateContent?key=***`,
+        status: response.status,
+        durationMs: Date.now() - startedAt
+      });
       throw new Error(`Gemini request failed with status ${response.status}`);
     }
 
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{"suggestions": []}';
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{"suggestions": []}';
+    logger.info('LLM response', {
+      provider: config.provider,
+      endpoint: `${baseUrl}/${config.model}:generateContent?key=***`,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+      responseLength: content.length
+    });
+
+    return content;
   }
 }
 
@@ -126,10 +193,10 @@ class LLMClientFactory {
     }
 
     if (provider === 'openai-compatible') {
-      return new OpenAICompatibleClient('http://localhost:11434/v1');
+      return new OpenAICompatibleClient();
     }
 
-    return new OpenAICompatibleClient('https://api.openai.com/v1');
+    return new OpenAICompatibleClient();
   }
 }
 
@@ -140,7 +207,36 @@ export class LLMCategorizer {
     folders: BookmarkFolder[],
     config: LLMCategorizationConfig
   ): Promise<string[]> {
-    const client = LLMClientFactory.create(config.provider);
+    // merge in any provider-specific defaults so callers may pass only
+    // overrides (e.g. apiKey).  this mirrors the behavior in
+    // BookmarkService.getCategorizationSettings but keeps the class usable on
+    // its own for tests and other utilities.
+    const providerDefaults = getProviderDefaults(config.provider);
+    const mergedConfig: LLMCategorizationConfig = {
+      ...(providerDefaults as LLMCategorizationConfig),
+      ...config,
+      provider: config.provider,
+      model:
+        config.model && config.model.trim().length > 0
+          ? config.model
+          : (providerDefaults.model as string),
+      baseUrl:
+        config.baseUrl && config.baseUrl.trim().length > 0
+          ? config.baseUrl
+          : (providerDefaults.baseUrl as string),
+      apiKey:
+        config.apiKey && config.apiKey.trim().length > 0
+          ? config.apiKey
+          : (providerDefaults.apiKey as string)
+    };
+    logger.info('Categorization started', {
+      provider: mergedConfig.provider,
+      model: mergedConfig.model,
+      folderCount: folders.length,
+      hasApiKey: Boolean(mergedConfig.apiKey)
+    });
+
+    const client = LLMClientFactory.create(mergedConfig.provider);
 
     const prompt = [
       'Task: pick the best folders for this bookmark.',
@@ -159,8 +255,12 @@ export class LLMCategorizer {
       'Include at most 5 suggestions ordered by confidence desc.'
     ].join('\n');
 
-    const content = await client.complete(prompt, config);
+    const content = await client.complete(prompt, mergedConfig);
     const parsed = this.parse(content);
+    logger.info('Categorization completed', {
+      provider: mergedConfig.provider,
+      suggestionsCount: parsed.length
+    });
 
     return parsed
       .sort((a, b) => b.confidence - a.confidence)

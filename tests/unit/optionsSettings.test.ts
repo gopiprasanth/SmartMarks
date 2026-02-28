@@ -73,6 +73,9 @@ describe('options settings', () => {
     (global as any).confirm = jest.fn(() => true);
 
     (global as any).chrome = {
+      runtime: {
+        getURL: (path: string) => path
+      },
       storage: {
         sync: {
           get: jest.fn((defaults: any, cb: (items: any) => void) => cb(defaults)),
@@ -81,6 +84,27 @@ describe('options settings', () => {
         }
       }
     };
+  });
+
+  test('loads provider defaults when options page is initialized', async () => {
+    // stub fetch so the default config can be returned
+    (global as any).fetch = (jest.fn() as any).mockResolvedValue({
+      json: async () => ({ model: 'foo', baseUrl: 'bar', temperature: 0.9 })
+    } as any);
+
+    jest.resetModules();
+    require('../../scripts/options.js');
+    (global as any).document.dispatchEvent({ type: 'DOMContentLoaded' });
+
+    // provider defaults should be fetched for the initial provider value ('openai')
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('config/openai.json'));
+
+    // changing the provider should trigger another fetch
+    const provider = (global as any).document.getElementById('llm-provider');
+    provider.value = 'anthropic';
+    // manually invoke any change listeners that were registered by the script
+    (provider.listeners.change || []).forEach((cb: () => void) => cb());
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('config/anthropic.json'));
   });
 
   test('saves smart suggestion and LLM categorization preferences', async () => {

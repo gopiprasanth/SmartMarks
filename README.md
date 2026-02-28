@@ -97,6 +97,10 @@ SmartMarks now supports an optional V2 flow that preserves V1 as the default beh
      - Anthropic Claude (`/messages`)
      - Gemini (`:generateContent`)
      - OpenAI-compatible endpoints for local/remote/self-hosted models (e.g., Ollama/Llama).
+   - Configuration details (default model, base URL, temperature) are stored in
+     provider-specific JSON files (e.g. `openai.json`, `anthropic.json`) and
+     merged with any user overrides.  This keeps the code tidy and makes it
+     easy to add new providers.
 
 3. **LLM Prompting**
    - SmartMarks sends bookmark title + URL + candidate folders (id/title/path/keywords).

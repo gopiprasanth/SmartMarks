@@ -32,10 +32,7 @@ describe('Categorization v2 integration', () => {
                 llm: {
                   enabled: true,
                   provider: 'openai',
-                  model: 'gpt-4o-mini',
-                  apiKey: 'test-key',
-                  baseUrl: 'https://api.openai.com/v1',
-                  temperature: 0.2
+                  apiKey: 'test-key'
                 }
               }
             })

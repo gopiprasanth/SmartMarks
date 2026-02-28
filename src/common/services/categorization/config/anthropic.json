@@ -1,0 +1,6 @@
+{
+  "model": "claude-2.1",
+  "apiKey": "",
+  "baseUrl": "https://api.anthropic.com/v1",
+  "temperature": 0.2
+}

@@ -6,8 +6,11 @@ import { getAllBookmarks, getAllBookmarkFolders, getBookmarkChildren } from '../
 import {
   CATEGORIZATION_SETTINGS_STORAGE_KEY,
   CategorizationSettings,
+  LLMProvider,
+  LLMCategorizationConfig,
   defaultCategorizationSettings
 } from './categorization/CategorizationSettings';
+import { getProviderDefaults } from './categorization/ProviderConfig';
 import { LLMCategorizer } from './categorization/LLMCategorizer';
 
 // Define types for bookmarks data analysis
@@ -287,7 +290,9 @@ export class BookmarkService {
     settings: CategorizationSettings
   ): Promise<BookmarkFolder[]> {
     if (!settings.llm.apiKey && settings.llm.provider !== 'openai-compatible') {
-      this.logger.info('LLM categorization enabled but API key missing, falling back to heuristics');
+      this.logger.info(
+        'LLM categorization enabled but API key missing, falling back to heuristics'
+      );
       return [];
     }
 
@@ -414,13 +419,42 @@ export class BookmarkService {
       defaultCategorizationSettings
     );
 
+    // combine the various sources of configuration in the correct order:
+    //   1. generic defaults from defaultCategorizationSettings.llm
+    //   2. providerâ€‘specific defaults from the JSON file
+    //   3. any values actually stored by the user (settings.llm)
+    // This prevents empty placeholder values from overwriting useful defaults.
+    const storedLlm: Partial<LLMCategorizationConfig> = settings.llm || {};
+    const provider: LLMProvider = storedLlm.provider || defaultCategorizationSettings.llm.provider;
+    const enabled =
+      typeof storedLlm.enabled === 'boolean'
+        ? storedLlm.enabled
+        : defaultCategorizationSettings.llm.enabled;
+    const providerDefaults = enabled ? getProviderDefaults(provider) : {};
+
+    const mergedLlm: LLMCategorizationConfig = {
+      ...defaultCategorizationSettings.llm,
+      ...providerDefaults,
+      ...storedLlm,
+      provider,
+      model:
+        storedLlm.model && storedLlm.model.trim().length > 0
+          ? storedLlm.model
+          : (providerDefaults.model as string) || defaultCategorizationSettings.llm.model,
+      baseUrl:
+        storedLlm.baseUrl && storedLlm.baseUrl.trim().length > 0
+          ? storedLlm.baseUrl
+          : (providerDefaults.baseUrl as string) || defaultCategorizationSettings.llm.baseUrl,
+      apiKey:
+        storedLlm.apiKey && storedLlm.apiKey.trim().length > 0
+          ? storedLlm.apiKey
+          : (providerDefaults.apiKey as string) || defaultCategorizationSettings.llm.apiKey
+    };
+
     return {
       categorizationVersion:
         settings.categorizationVersion === 'v2' ? settings.categorizationVersion : 'v1',
-      llm: {
-        ...defaultCategorizationSettings.llm,
-        ...(settings.llm || {})
-      }
+      llm: mergedLlm
     };
   }
 

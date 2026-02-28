@@ -12,6 +12,11 @@ document.addEventListener('DOMContentLoaded', function () {
   const llmBaseUrlInput = document.getElementById('llm-base-url');
   const llmTemperatureInput = document.getElementById('llm-temperature');
   const exportBtn = document.getElementById('export-btn');
+
+  // when the provider dropdown changes, update fields with its defaults
+  llmProviderSelect.addEventListener('change', () => {
+    maybeApplyProviderDefaults(llmProviderSelect.value);
+  });
   const importBtn = document.getElementById('import-btn');
   const clearDataBtn = document.getElementById('clear-data-btn');
   const saveBtn = document.getElementById('save-btn');
@@ -21,9 +26,9 @@ document.addEventListener('DOMContentLoaded', function () {
   document.body.appendChild(statusEl);
 
   const defaultCategorizationSettings = {
-    categorizationVersion: 'v1',
+    categorizationVersion: 'v2',
     llm: {
-      enabled: false,
+      enabled: true,
       provider: 'openai',
       model: 'gpt-4o-mini',
       apiKey: '',
@@ -73,8 +78,31 @@ document.addEventListener('DOMContentLoaded', function () {
         llmApiKeyInput.value = categorizationSettings.llm.apiKey;
         llmBaseUrlInput.value = categorizationSettings.llm.baseUrl;
         llmTemperatureInput.value = String(categorizationSettings.llm.temperature);
+        // make sure provider-specific defaults are reflected (in case the stored
+        // settings only contained provider/apiKey)
+        maybeApplyProviderDefaults(categorizationSettings.llm.provider);
       }
     );
+  }
+
+  // when provider changes, load its default config file and patch the
+  // model/baseUrl/temperature inputs so the UI reflects what will actually be
+  // used (the user may still override values afterwards).
+  function maybeApplyProviderDefaults(provider) {
+    if (!provider) return;
+    const url = chrome.runtime.getURL(`config/${provider}.json`);
+    fetch(url)
+      .then(res => res.json())
+      .then(cfg => {
+        if (cfg.model) llmModelInput.value = cfg.model;
+        if (cfg.baseUrl) llmBaseUrlInput.value = cfg.baseUrl;
+        if (typeof cfg.temperature !== 'undefined') {
+          llmTemperatureInput.value = String(cfg.temperature);
+        }
+      })
+      .catch(() => {
+        // ignore failure; nothing critical
+      });
   }
 
   // Save options
