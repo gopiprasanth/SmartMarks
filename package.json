@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "webpack --watch --mode=development",
     "build": "webpack --mode=production",
+    "lint": "eslint . --ext .ts,.js",
+    "lint:fix": "eslint . --ext .ts,.js --fix",
     "test": "jest",
     "test:unit": "jest --testPathPattern=tests/unit",
     "test:integration": "jest --testPathPattern=tests/integration",
