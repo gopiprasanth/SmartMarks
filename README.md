@@ -10,7 +10,7 @@ SmartMarks is a Chrome extension for intelligent bookmark management. It provide
 - Synchronization across devices
 - Customizable organization
 
-## Current Status (As of May 2025)
+## Current Status (As of March 2026)
 ### Available Features:
 - Basic extension with bookmark event detection (listening for bookmark creation)
 - Bookmark data collection and parsing functionality
@@ -22,9 +22,11 @@ SmartMarks is a Chrome extension for intelligent bookmark management. It provide
 - User preference learning from accepted folder suggestions
 - Expanded options page settings for smart suggestion behavior
 - Categorization V2 with optional LLM providers (OpenAI, Claude, Gemini, OpenAI-compatible local/remote models like Llama via Ollama)
+- Provider defaults externalized in JSON (`openai.json`, `anthropic.json`, `gemini.json`, `openai-compatible.json`)
+- Global categorization version sourced from `config/config.json`
+- LLM request/response logging for provider calls (with secret-safe logging)
 
-### Coming Soon:
-- ML/NLP integration for improved suggestion accuracy
+
 
 ## Architecture
 SmartMarks follows a modular architecture with clear separation of concerns:
@@ -88,8 +90,8 @@ When SmartMarks evaluates where to save a new bookmark, it runs a lightweight sc
 SmartMarks now supports an optional V2 flow that preserves V1 as the default behavior.
 
 1. **Configuration Gate**
-   - `categorizationSettings.categorizationVersion` defaults to `v1`.
-   - V2 activates only when `categorizationVersion = v2` and `llm.enabled = true`.
+   - `categorizationSettings.categorizationVersion` is sourced from `config/config.json`.
+   - LLM categorization runs only when `categorizationVersion = v2` and `llm.enabled = true`.
 
 2. **Provider Abstraction Layer**
    - A provider-neutral `LLMCategorizer` delegates to provider clients:
@@ -113,8 +115,8 @@ SmartMarks now supports an optional V2 flow that preserves V1 as the default beh
    - Users can provide API key, model name, and optional base URL in Options.
    - OpenAI-compatible mode supports local and remote hosted models.
 
-> **Default remains V1** for deterministic performance and zero external dependency.
-> **V2 is opt-in** for semantic categorization improvements when users want LLM assistance.
+> Current default `categorizationVersion` is configured in `config/config.json`.
+> LLM usage is still gated by `llm.enabled` and provider/API configuration.
 
 ### Technical Stack
 - **TypeScript**: For type-safe development
