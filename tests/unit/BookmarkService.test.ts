@@ -335,3 +335,67 @@ describe('BookmarkService personalization features', () => {
     expect(created?.id).toBe('created-folder');
   });
 });
+
+
+describe('BookmarkService v2 categorization', () => {
+  test('uses LLM suggestions when v2 mode and llm enabled', async () => {
+    const service = new BookmarkService();
+
+    const folderA: BookmarkFolder = {
+      id: 'a',
+      title: 'General',
+      path: 'Bookmarks Bar/General',
+      children: [],
+      bookmarkCount: 2,
+      keywords: new Set(['general'])
+    };
+    const folderB: BookmarkFolder = {
+      id: 'b',
+      title: 'LLM Notes',
+      path: 'Bookmarks Bar/LLM Notes',
+      children: [],
+      bookmarkCount: 2,
+      keywords: new Set(['llm'])
+    };
+
+    jest.spyOn(service, 'getBookmarkAnalysis').mockResolvedValue({
+      folders: new Map([
+        ['a', folderA],
+        ['b', folderB]
+      ]),
+      totalBookmarks: 4,
+      totalFolders: 2,
+      rootFolders: []
+    });
+
+    (global as any).chrome = {
+      storage: {
+        sync: {
+          get: jest.fn((defaults: any, cb: (value: any) => void) =>
+            cb({
+              ...defaults,
+              categorizationSettings: {
+                categorizationVersion: 'v2',
+                llm: {
+                  enabled: true,
+                  provider: 'openai-compatible',
+                  model: 'llama3.1',
+                  apiKey: '',
+                  baseUrl: 'http://localhost:11434/v1',
+                  temperature: 0.2
+                }
+              }
+            })
+          )
+        }
+      }
+    };
+
+    jest.spyOn((service as any).llmCategorizer, 'suggestFolders').mockResolvedValue(['b']);
+
+    const result = await service.suggestFolders('Local model setup', 'https://ollama.ai');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('b');
+  });
+});

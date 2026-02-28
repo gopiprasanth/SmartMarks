@@ -4,7 +4,7 @@
 SmartMarks is a Chrome extension for intelligent bookmark management. It provides features to organize, categorize, and search through your bookmarks efficiently.
 
 ## Features
-- Smart categorization of bookmarks
+- Smart categorization of bookmarks (v1 rule-based + optional v2 LLM-assisted)
 - Advanced search capabilities
 - Bookmark suggestions based on browsing patterns
 - Synchronization across devices
@@ -21,6 +21,7 @@ SmartMarks is a Chrome extension for intelligent bookmark management. It provide
 - Intelligent folder creation and naming from page domain/title
 - User preference learning from accepted folder suggestions
 - Expanded options page settings for smart suggestion behavior
+- Categorization V2 with optional LLM providers (OpenAI, Claude, Gemini, OpenAI-compatible local/remote models like Llama via Ollama)
 
 ### Coming Soon:
 - ML/NLP integration for improved suggestion accuracy
@@ -83,8 +84,33 @@ When SmartMarks evaluates where to save a new bookmark, it runs a lightweight sc
      (example: `docs.python.org` → **Docs Resources**).
    - The bookmark can then be saved directly into the newly created folder.
 
-> **Current approach:** rule-based and deterministic for speed and reliability in extension context.
-> **Planned evolution:** ML/NLP ranking for deeper semantic matching and improved personalization.
+### Algorithm V2 (Optional LLM-Assisted Categorization)
+SmartMarks now supports an optional V2 flow that preserves V1 as the default behavior.
+
+1. **Configuration Gate**
+   - `categorizationSettings.categorizationVersion` defaults to `v1`.
+   - V2 activates only when `categorizationVersion = v2` and `llm.enabled = true`.
+
+2. **Provider Abstraction Layer**
+   - A provider-neutral `LLMCategorizer` delegates to provider clients:
+     - OpenAI (`/chat/completions`)
+     - Anthropic Claude (`/messages`)
+     - Gemini (`:generateContent`)
+     - OpenAI-compatible endpoints for local/remote/self-hosted models (e.g., Ollama/Llama).
+
+3. **LLM Prompting**
+   - SmartMarks sends bookmark title + URL + candidate folders (id/title/path/keywords).
+   - The model is asked for strict JSON suggestions with confidence scores.
+
+4. **Safe Fallback**
+   - If model/API output is invalid or empty, SmartMarks automatically falls back to V1 heuristic ranking.
+
+5. **Bring Your Own Model / Key**
+   - Users can provide API key, model name, and optional base URL in Options.
+   - OpenAI-compatible mode supports local and remote hosted models.
+
+> **Default remains V1** for deterministic performance and zero external dependency.
+> **V2 is opt-in** for semantic categorization improvements when users want LLM assistance.
 
 ### Technical Stack
 - **TypeScript**: For type-safe development

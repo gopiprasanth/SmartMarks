@@ -32,6 +32,13 @@ const createDocument = () => {
     'show-favicons',
     'ask-folder-before-save',
     'auto-create-folders',
+    'categorization-version',
+    'llm-enabled',
+    'llm-provider',
+    'llm-model',
+    'llm-api-key',
+    'llm-base-url',
+    'llm-temperature',
     'export-btn',
     'import-btn',
     'clear-data-btn',
@@ -76,21 +83,50 @@ describe('options settings', () => {
     };
   });
 
-  test('saves smart suggestion preferences', async () => {
+  test('saves smart suggestion and LLM categorization preferences', async () => {
     jest.resetModules();
     require('../../scripts/options.js');
     (global as any).document.dispatchEvent({ type: 'DOMContentLoaded' });
 
     const ask = (global as any).document.getElementById('ask-folder-before-save');
     const auto = (global as any).document.getElementById('auto-create-folders');
+    const version = (global as any).document.getElementById('categorization-version');
+    const llmEnabled = (global as any).document.getElementById('llm-enabled');
+    const llmProvider = (global as any).document.getElementById('llm-provider');
+    const llmModel = (global as any).document.getElementById('llm-model');
+    const llmApiKey = (global as any).document.getElementById('llm-api-key');
+    const llmBaseUrl = (global as any).document.getElementById('llm-base-url');
+    const llmTemperature = (global as any).document.getElementById('llm-temperature');
+
     ask.checked = false;
     auto.checked = true;
+    version.value = 'v2';
+    llmEnabled.checked = true;
+    llmProvider.value = 'openai-compatible';
+    llmModel.value = 'llama3.1';
+    llmApiKey.value = '';
+    llmBaseUrl.value = 'http://localhost:11434/v1';
+    llmTemperature.value = '0.4';
 
     const save = (global as any).document.getElementById('save-btn');
     save.click();
 
     expect((global as any).chrome.storage.sync.set).toHaveBeenCalledWith(
-      expect.objectContaining({ askFolderBeforeSave: false, autoCreateFolders: true }),
+      expect.objectContaining({
+        askFolderBeforeSave: false,
+        autoCreateFolders: true,
+        categorizationSettings: {
+          categorizationVersion: 'v2',
+          llm: {
+            enabled: true,
+            provider: 'openai-compatible',
+            model: 'llama3.1',
+            apiKey: '',
+            baseUrl: 'http://localhost:11434/v1',
+            temperature: 0.4
+          }
+        }
+      }),
       expect.any(Function)
     );
   });
