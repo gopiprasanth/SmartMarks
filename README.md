@@ -56,6 +56,36 @@ src/
 3. Suggestion algorithms identify relevant folders
 4. UI components present recommendations and options to users
 
+
+### How the Smart Algorithm Works
+When SmartMarks evaluates where to save a new bookmark, it runs a lightweight scoring pipeline:
+
+1. **Keyword Extraction**
+   - Extracts keywords from bookmark title and URL.
+   - Normalizes to lowercase and removes punctuation.
+   - Drops short/common stop-words (e.g., `http`, `www`, `the`).
+
+2. **Folder Candidate Scoring**
+   - Each existing folder gets a relevance score.
+   - Folder keyword matches are weighted highest.
+   - Folder path/domain similarity adds extra score (e.g., docs URL matching a “Docs” folder).
+
+3. **Personalization Boost**
+   - If users repeatedly choose a folder from suggestions, SmartMarks stores that preference.
+   - Future suggestions receive a small boost for those preferred folders.
+
+4. **Top-N Suggestions**
+   - Folders are sorted by score and top matches are returned to the popup UI.
+   - The user can choose a suggested folder, save to default location, or create a new intelligent folder.
+
+5. **Intelligent Folder Creation (Fallback)**
+   - When needed, SmartMarks proposes/creates a folder name from domain/title patterns
+     (example: `docs.python.org` → **Docs Resources**).
+   - The bookmark can then be saved directly into the newly created folder.
+
+> **Current approach:** rule-based and deterministic for speed and reliability in extension context.
+> **Planned evolution:** ML/NLP ranking for deeper semantic matching and improved personalization.
+
 ### Technical Stack
 - **TypeScript**: For type-safe development
 - **Chrome Extension APIs**: For browser integration
