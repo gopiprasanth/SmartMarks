@@ -3,6 +3,12 @@
  */
 import { Logger, LogLevel } from '../utils/Logger';
 import { getAllBookmarks, getAllBookmarkFolders, getBookmarkChildren } from '../utils/ChromeUtils';
+import {
+  CATEGORIZATION_SETTINGS_STORAGE_KEY,
+  CategorizationSettings,
+  defaultCategorizationSettings
+} from './categorization/CategorizationSettings';
+import { LLMCategorizer } from './categorization/LLMCategorizer';
 
 // Define types for bookmarks data analysis
 export interface BookmarkFolder {
@@ -25,9 +31,11 @@ export interface BookmarkAnalysis {
 export class BookmarkService {
   private logger: Logger;
   private bookmarkAnalysis: BookmarkAnalysis | null = null;
+  private llmCategorizer: LLMCategorizer;
 
   constructor() {
     this.logger = new Logger('BookmarkService', LogLevel.INFO);
+    this.llmCategorizer = new LLMCategorizer();
   }
 
   /**
@@ -202,48 +210,100 @@ export class BookmarkService {
         return [];
       }
 
-      const preferenceWeights = await this.getPreferenceWeights();
+      const heuristicSuggestions = await this.suggestFoldersWithHeuristics(
+        analysis,
+        bookmarkKeywords,
+        url
+      );
 
-      // Calculate relevance score for each folder
-      const folderScores = new Map<string, number>();
+      const settings = await this.getCategorizationSettings();
+      if (settings.categorizationVersion !== 'v2' || !settings.llm.enabled) {
+        return heuristicSuggestions;
+      }
 
-      for (const folder of analysis.folders.values()) {
-        if (folder.bookmarkCount > 0) {
-          let score = 0;
-          bookmarkKeywords.forEach(keyword => {
-            if (folder.keywords.has(keyword)) {
-              score += 2;
-            }
+      const llmSuggestions = await this.suggestFoldersWithLLM(title, url, analysis, settings);
+      if (llmSuggestions.length === 0) {
+        return heuristicSuggestions;
+      }
 
-            const inPath = folder.path.toLowerCase().includes(keyword);
-            if (inPath) {
-              score += 1;
-            }
-          });
+      return llmSuggestions;
+    } catch (error) {
+      this.logger.error('Error suggesting folders', error);
+      return [];
+    }
+  }
 
-          const domain = this.extractDomain(url);
-          if (domain && folder.path.toLowerCase().includes(domain)) {
+  private async suggestFoldersWithHeuristics(
+    analysis: BookmarkAnalysis,
+    bookmarkKeywords: Set<string>,
+    url: string
+  ): Promise<BookmarkFolder[]> {
+    const preferenceWeights = await this.getPreferenceWeights();
+
+    // Calculate relevance score for each folder
+    const folderScores = new Map<string, number>();
+
+    for (const folder of analysis.folders.values()) {
+      if (folder.bookmarkCount > 0) {
+        let score = 0;
+        bookmarkKeywords.forEach(keyword => {
+          if (folder.keywords.has(keyword)) {
             score += 2;
           }
 
-          const preferenceBoost = preferenceWeights[folder.id] ?? 0;
-          score += preferenceBoost;
-
-          if (score > 0) {
-            folderScores.set(folder.id, score);
+          const inPath = folder.path.toLowerCase().includes(keyword);
+          if (inPath) {
+            score += 1;
           }
+        });
+
+        const domain = this.extractDomain(url);
+        if (domain && folder.path.toLowerCase().includes(domain)) {
+          score += 2;
+        }
+
+        const preferenceBoost = preferenceWeights[folder.id] ?? 0;
+        score += preferenceBoost;
+
+        if (score > 0) {
+          folderScores.set(folder.id, score);
         }
       }
+    }
 
-      // Convert scores to array and sort by relevance
-      const suggestedFolders = Array.from(folderScores.entries())
-        .sort((a, b) => b[1] - a[1])
-        .map(([id]) => analysis.folders.get(id)!)
-        .slice(0, 5); // Return top 5 suggestions
+    // Convert scores to array and sort by relevance
+    const suggestedFolders = Array.from(folderScores.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => analysis.folders.get(id)!)
+      .slice(0, 5); // Return top 5 suggestions
 
-      return suggestedFolders;
+    return suggestedFolders;
+  }
+
+  private async suggestFoldersWithLLM(
+    title: string,
+    url: string,
+    analysis: BookmarkAnalysis,
+    settings: CategorizationSettings
+  ): Promise<BookmarkFolder[]> {
+    if (!settings.llm.apiKey && settings.llm.provider !== 'openai-compatible') {
+      this.logger.info('LLM categorization enabled but API key missing, falling back to heuristics');
+      return [];
+    }
+
+    try {
+      const folderIds = await this.llmCategorizer.suggestFolders(
+        title,
+        url,
+        Array.from(analysis.folders.values()),
+        settings.llm
+      );
+
+      return folderIds
+        .map(folderId => analysis.folders.get(folderId))
+        .filter((folder): folder is BookmarkFolder => Boolean(folder));
     } catch (error) {
-      this.logger.error('Error suggesting folders', error);
+      this.logger.error('LLM categorization failed, falling back to heuristics', error);
       return [];
     }
   }
@@ -346,6 +406,22 @@ export class BookmarkService {
         resolve((data[key] as T) ?? fallback);
       });
     });
+  }
+
+  private async getCategorizationSettings(): Promise<CategorizationSettings> {
+    const settings = await this.getStorageValue<Partial<CategorizationSettings>>(
+      CATEGORIZATION_SETTINGS_STORAGE_KEY,
+      defaultCategorizationSettings
+    );
+
+    return {
+      categorizationVersion:
+        settings.categorizationVersion === 'v2' ? settings.categorizationVersion : 'v1',
+      llm: {
+        ...defaultCategorizationSettings.llm,
+        ...(settings.llm || {})
+      }
+    };
   }
 
   private async setStorageValue<T>(key: string, value: T): Promise<void> {

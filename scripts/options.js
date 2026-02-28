@@ -4,6 +4,13 @@ document.addEventListener('DOMContentLoaded', function () {
   const showFaviconsCheckbox = document.getElementById('show-favicons');
   const askFolderBeforeSaveCheckbox = document.getElementById('ask-folder-before-save');
   const autoCreateFoldersCheckbox = document.getElementById('auto-create-folders');
+  const categorizationVersionSelect = document.getElementById('categorization-version');
+  const llmEnabledCheckbox = document.getElementById('llm-enabled');
+  const llmProviderSelect = document.getElementById('llm-provider');
+  const llmModelInput = document.getElementById('llm-model');
+  const llmApiKeyInput = document.getElementById('llm-api-key');
+  const llmBaseUrlInput = document.getElementById('llm-base-url');
+  const llmTemperatureInput = document.getElementById('llm-temperature');
   const exportBtn = document.getElementById('export-btn');
   const importBtn = document.getElementById('import-btn');
   const clearDataBtn = document.getElementById('clear-data-btn');
@@ -13,6 +20,27 @@ document.addEventListener('DOMContentLoaded', function () {
   statusEl.style.display = 'none';
   document.body.appendChild(statusEl);
 
+  const defaultCategorizationSettings = {
+    categorizationVersion: 'v1',
+    llm: {
+      enabled: false,
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      apiKey: '',
+      baseUrl: '',
+      temperature: 0.2
+    }
+  };
+
+  function clampTemperature(value) {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) {
+      return defaultCategorizationSettings.llm.temperature;
+    }
+
+    return Math.max(0, Math.min(1, parsed));
+  }
+
   // Load saved options
   function loadOptions() {
     chrome.storage.sync.get(
@@ -20,13 +48,31 @@ document.addEventListener('DOMContentLoaded', function () {
         defaultView: 'list',
         showFavicons: true,
         askFolderBeforeSave: true,
-        autoCreateFolders: false
+        autoCreateFolders: false,
+        categorizationSettings: defaultCategorizationSettings
       },
       function (items) {
         defaultViewSelect.value = items.defaultView;
         showFaviconsCheckbox.checked = items.showFavicons;
         askFolderBeforeSaveCheckbox.checked = items.askFolderBeforeSave;
         autoCreateFoldersCheckbox.checked = items.autoCreateFolders;
+
+        const categorizationSettings = {
+          ...defaultCategorizationSettings,
+          ...(items.categorizationSettings || {}),
+          llm: {
+            ...defaultCategorizationSettings.llm,
+            ...((items.categorizationSettings && items.categorizationSettings.llm) || {})
+          }
+        };
+
+        categorizationVersionSelect.value = categorizationSettings.categorizationVersion;
+        llmEnabledCheckbox.checked = categorizationSettings.llm.enabled;
+        llmProviderSelect.value = categorizationSettings.llm.provider;
+        llmModelInput.value = categorizationSettings.llm.model;
+        llmApiKeyInput.value = categorizationSettings.llm.apiKey;
+        llmBaseUrlInput.value = categorizationSettings.llm.baseUrl;
+        llmTemperatureInput.value = String(categorizationSettings.llm.temperature);
       }
     );
   }
@@ -37,7 +83,18 @@ document.addEventListener('DOMContentLoaded', function () {
       defaultView: defaultViewSelect.value,
       showFavicons: showFaviconsCheckbox.checked,
       askFolderBeforeSave: askFolderBeforeSaveCheckbox.checked,
-      autoCreateFolders: autoCreateFoldersCheckbox.checked
+      autoCreateFolders: autoCreateFoldersCheckbox.checked,
+      categorizationSettings: {
+        categorizationVersion: categorizationVersionSelect.value,
+        llm: {
+          enabled: llmEnabledCheckbox.checked,
+          provider: llmProviderSelect.value,
+          model: llmModelInput.value.trim() || defaultCategorizationSettings.llm.model,
+          apiKey: llmApiKeyInput.value.trim(),
+          baseUrl: llmBaseUrlInput.value.trim(),
+          temperature: clampTemperature(llmTemperatureInput.value)
+        }
+      }
     };
 
     chrome.storage.sync.set(options, function () {

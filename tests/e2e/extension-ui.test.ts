@@ -105,6 +105,20 @@ test.describe('Extension UI Tests', () => {
                   <option value="system">System</option>
                 </select>
               </div>
+              <div class="option-group">
+                <label for="categorization-version">Categorization Version</label>
+                <select id="categorization-version">
+                  <option value="v1">V1</option>
+                  <option value="v2">V2</option>
+                </select>
+              </div>
+              <div class="option-group">
+                <label for="llm-provider">LLM Provider</label>
+                <select id="llm-provider">
+                  <option value="openai">OpenAI</option>
+                  <option value="openai-compatible">OpenAI-compatible</option>
+                </select>
+              </div>
               <button id="save-options" type="button">Save Options</button>
             </form>
             <div id="save-status" style="display: none; margin-top: 10px; color: green;">
@@ -121,11 +135,15 @@ test.describe('Extension UI Tests', () => {
         document.getElementById('save-options').addEventListener('click', function() {
           const autoOrganize = document.getElementById('auto-organize').checked;
           const theme = document.getElementById('theme-select').value;
-          
+          const categorizationVersion = document.getElementById('categorization-version').value;
+          const llmProvider = document.getElementById('llm-provider').value;
+
           // Simulate saving options
           window.savedOptions = {
             autoOrganize,
-            theme
+            theme,
+            categorizationVersion,
+            llmProvider
           };
           
           // Show save status
@@ -152,6 +170,8 @@ test.describe('Extension UI Tests', () => {
     await expect(mockOptionsPage.locator('#auto-organize')).toBeVisible();
     await expect(mockOptionsPage.locator('#theme-select')).toBeVisible();
     await expect(mockOptionsPage.locator('#save-options')).toBeVisible();
+    await expect(mockOptionsPage.locator('#categorization-version')).toBeVisible();
+    await expect(mockOptionsPage.locator('#llm-provider')).toBeVisible();
   });
 
   test('should interact with popup UI elements', async () => {
@@ -179,6 +199,10 @@ test.describe('Extension UI Tests', () => {
     // Select the dark theme
     await mockOptionsPage.locator('#theme-select').selectOption('dark');
 
+    // Configure categorization v2 settings and save
+    await mockOptionsPage.locator('#categorization-version').selectOption('v2');
+    await mockOptionsPage.locator('#llm-provider').selectOption('openai-compatible');
+
     // Click the save button
     await mockOptionsPage.locator('#save-options').click();
 
@@ -190,7 +214,9 @@ test.describe('Extension UI Tests', () => {
     const savedOptions = await mockOptionsPage.evaluate(() => window.savedOptions);
     expect(savedOptions).toEqual({
       autoOrganize: true,
-      theme: 'dark'
+      theme: 'dark',
+      categorizationVersion: 'v2',
+      llmProvider: 'openai-compatible'
     });
   });
 });
