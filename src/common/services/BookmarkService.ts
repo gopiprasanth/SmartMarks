@@ -202,6 +202,8 @@ export class BookmarkService {
         return [];
       }
 
+      const preferenceWeights = await this.getPreferenceWeights();
+
       // Calculate relevance score for each folder
       const folderScores = new Map<string, number>();
 
@@ -210,9 +212,22 @@ export class BookmarkService {
           let score = 0;
           bookmarkKeywords.forEach(keyword => {
             if (folder.keywords.has(keyword)) {
+              score += 2;
+            }
+
+            const inPath = folder.path.toLowerCase().includes(keyword);
+            if (inPath) {
               score += 1;
             }
           });
+
+          const domain = this.extractDomain(url);
+          if (domain && folder.path.toLowerCase().includes(domain)) {
+            score += 2;
+          }
+
+          const preferenceBoost = preferenceWeights[folder.id] ?? 0;
+          score += preferenceBoost;
 
           if (score > 0) {
             folderScores.set(folder.id, score);
@@ -231,5 +246,116 @@ export class BookmarkService {
       this.logger.error('Error suggesting folders', error);
       return [];
     }
+  }
+
+  /**
+   * Learn from accepted suggestions to personalize future recommendations.
+   */
+  public async recordFolderSelection(folderId: string): Promise<void> {
+    const key = 'folderPreferences';
+    const existing = await this.getStorageValue<Record<string, number>>(key, {});
+    const next = {
+      ...existing,
+      [folderId]: (existing[folderId] || 0) + 1
+    };
+    await this.setStorageValue(key, next);
+  }
+
+  /**
+   * Suggests a human-friendly folder name from bookmark metadata.
+   */
+  public suggestFolderName(title: string, url: string): string {
+    const domain = this.extractDomain(url);
+    if (domain) {
+      return `${domain.charAt(0).toUpperCase()}${domain.slice(1)} Resources`;
+    }
+
+    const words = title
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 3)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+
+    if (words.length > 0) {
+      return words.join(' ');
+    }
+
+    return 'SmartMarks Collection';
+  }
+
+  public async createFolderForBookmark(title: string, url: string): Promise<BookmarkFolder | null> {
+    try {
+      const analysis = await this.getBookmarkAnalysis();
+      const rootParentId = analysis.rootFolders[0]?.id || '1';
+      const folderTitle = this.suggestFolderName(title, url);
+
+      const created = await new Promise<chrome.bookmarks.BookmarkTreeNode>((resolve, reject) => {
+        chrome.bookmarks.create({ parentId: rootParentId, title: folderTitle }, folder => {
+          if (!folder) {
+            reject(new Error('Failed to create folder'));
+            return;
+          }
+          resolve(folder);
+        });
+      });
+
+      await this.analyzeBookmarks();
+
+      return {
+        id: created.id,
+        title: created.title || folderTitle,
+        parentId: created.parentId,
+        path: `${analysis.rootFolders[0]?.path || 'Bookmarks Bar'}/${created.title || folderTitle}`,
+        children: [],
+        bookmarkCount: 0,
+        keywords: new Set<string>()
+      };
+    } catch (error) {
+      this.logger.error('Error creating intelligent folder', error);
+      return null;
+    }
+  }
+
+  private extractDomain(url: string): string {
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.replace(/^www\./, '');
+      return host.split('.')[0] || '';
+    } catch (_error) {
+      return '';
+    }
+  }
+
+  private async getPreferenceWeights(): Promise<Record<string, number>> {
+    const preferences = await this.getStorageValue<Record<string, number>>('folderPreferences', {});
+    const weighted: Record<string, number> = {};
+    Object.entries(preferences).forEach(([folderId, count]) => {
+      weighted[folderId] = Math.min(5, Math.floor(count / 2) + 1);
+    });
+    return weighted;
+  }
+
+  private async getStorageValue<T>(key: string, fallback: T): Promise<T> {
+    return new Promise(resolve => {
+      if (!globalThis.chrome?.storage?.sync) {
+        resolve(fallback);
+        return;
+      }
+
+      globalThis.chrome.storage.sync.get({ [key]: fallback }, data => {
+        resolve((data[key] as T) ?? fallback);
+      });
+    });
+  }
+
+  private async setStorageValue<T>(key: string, value: T): Promise<void> {
+    await new Promise<void>(resolve => {
+      if (!globalThis.chrome?.storage?.sync) {
+        resolve();
+        return;
+      }
+
+      globalThis.chrome.storage.sync.set({ [key]: value }, () => resolve());
+    });
   }
 }

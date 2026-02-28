@@ -267,3 +267,71 @@ describe('BookmarkService', () => {
     });
   });
 });
+
+
+describe('BookmarkService personalization features', () => {
+  let service: BookmarkService;
+
+  beforeEach(() => {
+    service = new BookmarkService();
+    (global as any).chrome = {
+      storage: {
+        sync: {
+          get: jest.fn((_defaults: any, cb: (value: any) => void) =>
+            cb({ folderPreferences: { 'folder-a': 3 } })
+          ),
+          set: jest.fn((_value: any, cb: () => void) => cb())
+        }
+      },
+      bookmarks: {
+        create: jest.fn((details: any, cb: (folder: any) => void) =>
+          cb({ id: 'created-folder', title: details.title, parentId: details.parentId })
+        )
+      }
+    };
+  });
+
+  test('recordFolderSelection increments folder preference counter', async () => {
+    await service.recordFolderSelection('folder-a');
+
+    expect((global as any).chrome.storage.sync.set).toHaveBeenCalledWith(
+      { folderPreferences: { 'folder-a': 4 } },
+      expect.any(Function)
+    );
+  });
+
+  test('suggestFolderName derives readable name from domain', () => {
+    expect(service.suggestFolderName('Any title', 'https://docs.python.org/3/')).toBe(
+      'Docs Resources'
+    );
+  });
+
+  test('createFolderForBookmark creates a folder beneath root', async () => {
+    jest.spyOn(service, 'getBookmarkAnalysis').mockResolvedValue({
+      folders: new Map(),
+      totalBookmarks: 0,
+      totalFolders: 1,
+      rootFolders: [
+        {
+          id: '1',
+          title: 'Bookmarks Bar',
+          path: 'Bookmarks Bar',
+          children: [],
+          bookmarkCount: 0,
+          keywords: new Set()
+        }
+      ]
+    });
+    jest.spyOn(service, 'analyzeBookmarks').mockResolvedValue({
+      folders: new Map(),
+      totalBookmarks: 0,
+      totalFolders: 1,
+      rootFolders: []
+    });
+
+    const created = await service.createFolderForBookmark('TypeScript Handbook', 'https://typescriptlang.org');
+
+    expect((global as any).chrome.bookmarks.create).toHaveBeenCalled();
+    expect(created?.id).toBe('created-folder');
+  });
+});

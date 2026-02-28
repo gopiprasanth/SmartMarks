@@ -100,6 +100,47 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+
+  if (message.action === 'recordFolderSelection') {
+    const folderId = typeof message.folderId === 'string' ? message.folderId : '';
+
+    bookmarkEventHandler
+      .getBookmarkService()
+      .recordFolderSelection(folderId)
+      .then(() => sendResponse({ status: 'success' }))
+      .catch(error => sendResponse({ status: 'error', message: error.message }));
+
+    return true;
+  }
+
+  if (message.action === 'createIntelligentFolder') {
+    const title = typeof message.title === 'string' ? message.title : '';
+    const url = typeof message.url === 'string' ? message.url : '';
+
+    bookmarkEventHandler
+      .getBookmarkService()
+      .createFolderForBookmark(title, url)
+      .then(folder => {
+        if (!folder) {
+          sendResponse({ status: 'error', message: 'Unable to create folder' });
+          return;
+        }
+
+        sendResponse({
+          status: 'success',
+          data: {
+            id: folder.id,
+            title: folder.title,
+            path: folder.path,
+            bookmarkCount: folder.bookmarkCount
+          }
+        });
+      })
+      .catch(error => sendResponse({ status: 'error', message: error.message }));
+
+    return true;
+  }
+
   // Default response
   sendResponse({ status: 'received' });
   return true;
